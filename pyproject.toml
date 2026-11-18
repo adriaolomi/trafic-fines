@@ -34,3 +34,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv.build-backend]
+module-name = "trafic_fines"
+module-root = "src"

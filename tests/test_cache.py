@@ -88,14 +88,17 @@ def test_cacheurl_downloads_and_caches_response(cache_url, monkeypatch):
     assert calls == ["https://example.test/data.csv"]
 
 
-def test_cacheurl_connection_error_returns_none(cache_url, monkeypatch):
+def test_cacheurl_connection_error(cache_url, monkeypatch):
     import requests
+    import pytest
 
     def mock_get(url):
         raise requests.RequestException("network unavailable")
 
     monkeypatch.setattr(cache_module.requests, "get", mock_get)
-    assert cache_url.get("https://example.test/data.csv") is None
+
+    with pytest.raises(CacheError, match="Error de conexión"):
+        cache_url.get("https://example.test/data.csv")
 
 
 def test_cacheurl_load_missing_url_raises_cache_error(cache_url):

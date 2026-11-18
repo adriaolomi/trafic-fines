@@ -27,6 +27,18 @@ def get_url(year: int, month: int) -> str:
     """
     Función que recibe como argumentos un mes (1–12) y un año
     y devuelve la URL del fichero CSV con los datos de multas.
+
+    Args:
+        year (int): Año de los datos que se quieren descargar.
+        month (int): Mes de los datos que se quieren descargar (1-12).
+
+    Returns:
+        str: URL del fichero CSV correspondiente al mes y año indicados.
+
+    Raises:
+        MadridError: Si se produce un error al realizar la petición HTTP
+            o si no se encuentra el recurso correspondiente.
+        KeyError: Si el mes indicado no existe en MAPPING_MES.
     """
 
     # Realizamos la petición a la web
@@ -76,6 +88,20 @@ def get_url(year: int, month: int) -> str:
 class MadridFines:
 
     def __init__(self, app_name, obsolescence) -> None:
+        """
+        Inicializa una instancia de MadridFines.
+
+        Args:
+            app_name (str): Nombre de la aplicación utilizado para identificar
+                el espacio de almacenamiento de la caché.
+            obsolescence (int): Tiempo de obsolescencia de los elementos
+                almacenados en caché.
+
+        Attributes:
+            cacheurl (CacheURL): Objeto encargado de gestionar la caché de URLs.
+            data (pd.DataFrame): DataFrame que contiene los datos de multas.
+            loaded (list): Lista de tuplas (mes, año) de los datasets cargados.
+        """
         self.cacheurl = CacheURL(app_name, obsolescence)
         self.__data: pd.DataFrame = pd.DataFrame()
         self.__loaded: list = []
@@ -83,27 +109,66 @@ class MadridFines:
 
     @property
     def data(self) -> pd.DataFrame:
+        """
+        Devuelve el DataFrame que contiene los datos de multas.
+
+        Returns:
+            pd.DataFrame: DataFrame con los datos cargados y procesados.
+        """
         return self.__data
 
     @data.setter
     def data(self, df: pd.DataFrame) -> None:
+        """
+        Establece el DataFrame que contiene los datos de multas.
+
+        Args:
+            df (pd.DataFrame): DataFrame que se asignará al atributo data.
+        """
         self.__data = df
 
 
     @property
     def loaded(self) -> list:
+        """
+        Devuelve la lista de datasets cargados.
+
+        Returns:
+            list: Lista de tuplas (mes, año) correspondientes a los datasets
+                importados.
+        """
         return self.__loaded
 
     @loaded.setter
     def loaded(self, loaded: list) -> None:
+        """
+        Establece la lista de datasets cargados.
+
+        Args:
+            loaded (list): Lista de tuplas (mes, año).
+        """
         self.__loaded = loaded
 
 
     @staticmethod
-    def load(year: int, month: int, cacheurl) -> pd.DataFrame: 
+    def load(year: int, month: int, cacheurl) -> pd.DataFrame:
         """
         Se trata de un método interno y estático que utiliza el objeto cacheurl para acceder a los datos de multas del año year y mes month, a
         partir del cual se crea un dataframe de pandas que se será devuelto por la función.
+
+        Args:
+            year (int): Año de los datos que se quieren cargar.
+            month (int): Mes de los datos que se quieren cargar (1-12).
+            cacheurl (CacheURL): Objeto encargado de descargar y almacenar
+                el contenido de la URL en caché.
+
+        Returns:
+            pd.DataFrame: DataFrame con los datos del fichero CSV.
+
+        Raises:
+            MadridError: Si no se encuentra la URL correspondiente.
+            Exception: Si se produce un error durante la descarga o lectura
+                de los datos.
         """
         url = get_url(year, month)
         content = cacheurl.get(url)
@@ -112,21 +177,38 @@ class MadridFines:
         return df
 
 
-    def clean_cache(self) -> None: 
+    def clean_cache(self) -> None:
         """
         Método que borra todos los elementos de la caché.
+
+        Raises:
+            Exception: Si se produce un error durante la eliminación
+                de los elementos de la caché.
         """
         self.cacheurl.clear()        
     
 
     @staticmethod
-    def clean(df: pd.DataFrame) -> None: 
+    def clean(df: pd.DataFrame) -> None:
         """
         Método interno y estático que permite limpiar y normalizar los datos del dataframe df. La limpieza y preprocesamiento a realizar es
         la que se define en la sección ETAPA 1 (elimina espacios en blanco en columnas de texto, convierte columnas numéricas (VEL_CIRCULA,
         VEL_LIMITE, COORDENADA-X, COORDENADA-Y), crea una columna fecha a partir de ANIO, MES y HORA, etc.). Es posible que no todos los
         meses tengan las mismas columnas. Por ejemplo, en Mayo de 2019, las columnas son COORDENADA_X, COORDENADA_Y, en lugar de COORDENADA
         X, COORDENADA-Y.
+
+        Args:
+            df (pd.DataFrame): DataFrame original que se desea limpiar.
+                Se modifica directamente, sin generar una copia.
+
+        Returns:
+            None
+
+        Raises:
+            KeyError: Si falta alguna de las columnas necesarias para el
+                procesamiento, como CALIFICACION, ANIO, MES o HORA.
+            ValueError: Si algún valor no puede convertirse al formato
+                de fecha esperado.
         """
 
         ## PREGUNTA A
@@ -191,13 +273,28 @@ class MadridFines:
         return None
 
 
-    def add(self, year: int, month: int|None = None) -> None: 
+    def add(self, year: int, month: int | None = None) -> None:
         """
         Permite añadir información de multas de un mes y un año concreto al dataset data actual. Evita duplicar meses ya cargados (si el mes
         ya existe, el método no hace nada). En caso contrario, se descargan los datos del año year y mes month usando el método load, se
         realiza la limpieza del dataframe descargado usando el método clean y se añade al dataset actual data. Este método tendrá que
         actualizar correctamente el atributo loaded. En el caso de que el parámetro month sea None, se descargarán los datos del año completo.
+
+        Args:
+            year (int): Año de los datos que se quieren añadir.
+            month (int | None): Mes que se quiere añadir (1-12).
+                Si es None, se solicita la descarga del año completo.
+
+        Returns:
+            None
+
+        Raises:
+            NotImplementedError: Si month es None, ya que la descarga
+                del año completo todavía no está implementada.
+            MadridError: Si no se encuentra el recurso correspondiente.
+            KeyError: Si el mes indicado no es válido.
         """
+
         # Comprobar si el mes y año, ya estaban cargados
         for tup in self.loaded:
             if month==tup[0] and year==tup[1]:
@@ -219,10 +316,21 @@ class MadridFines:
         self.loaded.append(new_set)
 
     
-    def fines_hour(self, fig_name: str)-> None: 
+    def fines_hour(self, fig_name: str) -> None:
         """
         Método que genera un gráfico de líneas que muestra la evolución del número de multas a lo largo de las horas del día. Si hay varios
-        meses cargados, dibuja una línea por cada mes. La función guarda el gráfico con nombre fig_name (por ejemplo evolucion_multas.png)
+        meses cargados, dibuja una línea por cada mes. La función guarda el gráfico con nombre fig_name (por ejemplo evolucion_multas.png).
+
+        Args:
+            fig_name (str): Nombre o ruta del fichero donde se guardará
+                el gráfico generado.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: Si el índice del DataFrame no puede interpretarse
+                como fechas.
         """
 
         # Asegurar que el índice es un DatetimeIndex
@@ -258,10 +366,14 @@ class MadridFines:
         plt.close()
 
 
-    def fines_calification(self) -> pd.DataFrame: 
+    def fines_calification(self) -> pd.DataFrame:
         """
         Analiza la distribución de multas por calificación, mes y año. Devuelve un DataFrame con el número total de multas distinguiendo por
         tipo para cada uno de los meses.
+
+        Returns:
+            pd.DataFrame: Tabla con los recuentos de multas por calificación,
+                agrupados por mes y año.
         """
 
         # Agrupar por mes y año y contar las ocurrencias de cada tipo de CALIFICACION. Los valores faltantes se interpretan como 0.
@@ -275,10 +387,17 @@ class MadridFines:
         return fines
 
 
-    def total_payment(self) -> pd.DataFrame: 
+    def total_payment(self) -> pd.DataFrame:
         """
         Método que genera un resumen con el importe total (máximo y mínimo) recaudado por mes y año. Una multa puede tener descuento por
         pronto pago del 50%, pero cabe la posibilidad de que el infractor no realice el pago en fecha para acojerse a dicho descuento.
+
+        Returns:
+            pd.DataFrame: DataFrame con dos columnas:
+                - PRECIO_MAX: Importe total sin aplicar descuentos.
+                - PRECIO_MIN: Importe total aplicando el descuento del 50%
+                a las multas que corresponda.
+            El índice contiene el mes y el año.
         """
         
         # El máximo = Suma del importe de todas las multas del mes y año.
@@ -314,6 +433,11 @@ class MadridFines:
 
     def __str__(self):
         """
+        Devuelve una representación textual del objeto MadridFines.
+
+        Returns:
+            str: Representación del DataFrame de multas y de los datasets
+                que se han cargado.
         """
         text = " , Data: " + str(self.data) + ' , Loaded: ' + str(self.loaded)
         return text
@@ -321,27 +445,29 @@ class MadridFines:
 
 ## EXCEPCIONES ##
 class MadridError(Exception):
-    """Excepción lanzada por errores en la caché.
+    """
+    Excepción lanzada cuando se producen errores relacionados con
+    la descarga o localización de los datos de multas de Madrid.
 
-    Atributos:        
-        message -- explicación del error
+    Args:
+        message (str): Descripción del error producido.
+
+    Attributes:
+        message (str): Mensaje explicativo del error.
     """
 
     def __init__(self, message):
         self.message = message
-    
+
 
 #################    MAIN     ####################
 # No se incluye en el pytest -> # pragma: no cover
 if __name__ == '__main__': # pragma: no cover
 
     # Crear objeto de la classe MadridFines
-    m = MadridFines(app_name="Olomi", obsolescence=2)
+    m = MadridFines(app_name="madridfines_test", obsolescence=2)
 
-    # Cargar varios datasets
-    #df = MadridFines.load(year=2024, month=9, cacheurl=m.cacheurl)    # static method
-    #df = MadridFines.load(year=2024, month=10, cacheurl=m.cacheurl)   # static method
-    #df = MadridFines.load(year=2024, month=11, cacheurl=m.cacheurl)   # static method
+    # Borrar datos de caché
     #MadridFines.clean(df)                                       # static method
 
     # Limpiar cache
@@ -351,11 +477,9 @@ if __name__ == '__main__': # pragma: no cover
     m.add(year=2024, month=9)
     m.add(year=2024, month=10)
     m.add(year=2024, month=11)
-    #print(m)
 
-    #print(m.data.columns)
-
+    # Varios métodos
     m.fines_hour(fig_name="test")
-    #print("FINES CALIFICATION")
-    #print(m.fines_calification())
-    #print(m.total_payment())
+    print("FINES CALIFICATION")
+    print(m.fines_calification())
+    print(m.total_payment())

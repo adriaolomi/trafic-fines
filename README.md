@@ -2,6 +2,9 @@
 
 Paquete de Python para la descarga, almacenamiento, procesamiento y análisis de datos de multas de circulación del Ayuntamiento de Madrid, publicados a través del portal de datos abiertos **datos.madrid.es**.
 
+## Nota sobre el uso de inteligencia artificial: 
+Para el desarrollo de este proyecto se ha utilizado ChatGPT como herramienta de apoyo en la redacción de este README, la elaboración de los docstrings y el planteamiento de los tests. La lógica y la implementación del programa han sido desarrolladas por mí. Puntualmente, también se ha consultado la IA para resolver dudas concretas sobre atributos y llamadas a determinados métodos.
+
 ## Funcionalidades
 
 El paquete se divide en dos módulos principales:
