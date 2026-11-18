@@ -39,10 +39,10 @@ git clone <URL_DEL_REPOSITORIO>
 cd trafic-fines
 ```
 
-Instala las dependencias del proyecto:
+Instala el módulo:
 
 ```bash
-uv sync
+uv build
 ```
 
 ## Uso básico
