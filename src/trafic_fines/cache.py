@@ -187,9 +187,12 @@ class CacheURL(Cache):
                     url_hashed = hashlib.md5((url + str(kwargs)).encode('utf-8')).hexdigest()
                     super().set(name=url_hashed, data=response.text)
                     return self.load(url)
+                else:
+                    raise CacheError(
+                        f"Error HTTP {response.status_code} al consultar {url}"
+                    )
             except requests.RequestException as e:
-                print("Error de conexión:", e)
-                return None
+                raise CacheError(f"Error de conexión con {url}: {e}") from e
 
     # Redefinición de la clase padre  
     def exists(self, url: str, **kwargs) -> bool:
@@ -210,7 +213,7 @@ class CacheURL(Cache):
             with open(self.cache_dir / url_hashed, 'r') as file:
                 return file.read()
         else:
-            raise CacheError(f"El archivo {url_hashed} no existe en la cache {self.app_name} con ruta {self.cache_dir}!")
+            raise CacheError(f"El archivo {url} no existe en la cache {self.app_name} con ruta {self.cache_dir}!")
 
     
     # Redefinición de la clase padre 
@@ -253,9 +256,9 @@ class CacheError(Exception):
         self.message = message
 
     
-######## MAIN ########
-if __name__ == '__main__':
-
+#################    MAIN     ####################
+# No se incluye en el pytest -> # pragma: no cover
+if __name__ == '__main__': # pragma: no cover
 
     ##
     c = CacheURL("olomi_url_test_dir", 12)

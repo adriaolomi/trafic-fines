@@ -75,7 +75,7 @@ class MadridFines:
         # si la petición ha ido bien
         if response.status_code == 200:
             content = io.StringIO(response.text)
-            multas_df = pd.read_csv(content, sep =';', encoding = 'latin1')
+            multas_df = pd.read_csv(content, sep =';', encoding = 'latin1',low_memory=False)
             return multas_df
         else:
             return None

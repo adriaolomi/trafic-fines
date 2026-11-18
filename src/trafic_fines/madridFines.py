@@ -25,40 +25,52 @@ MAPPING_MES = {
 
 def get_url(year: int, month: int) -> str:
     """
-    Función que recibe como argumentos un mes (1–12) y un año (con cuatro cifras, ej. 2024) y devuelva la URL del fichero CSV con los datos
-    de multas correspondiente a ese mes y año, disponible en el portal de datos abiertos del Ayuntamiento de Madrid. Si el mes y año no están
-    en la página se debe producir una excepción. 
+    Función que recibe como argumentos un mes (1–12) y un año
+    y devuelve la URL del fichero CSV con los datos de multas.
     """
 
     # Realizamos la petición a la web
     extension = "dataset/210104-0-multas-circulacion-detalle/downloads"
     url = RAIZ + extension.lstrip("/")
-    
+
     # Request
     response = requests.get(url)
-    
-    # si la petición ha ido bien
-    if response.status_code == 200:   
-            
-        # Pasamos el contenido HTML de la web a un objeto BeautifulSoup()
-        soup = BeautifulSoup(response.text,"html.parser")
 
-        # Se observa que en los <div tracked-resource-item se organizan los periodos con los data-keys {year}-{month}
+    # Si la petición ha ido bien
+    if response.status_code == 200:
+
+        # Pasamos el contenido HTML a BeautifulSoup
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        # Buscamos el periodo correspondiente
         data_key = f"{year}-{MAPPING_MES[month]}"
-        resources = soup.select(f'div.tracked-resource-item[data-key="{data_key}"]')
+        resources = soup.select(
+            f'div.tracked-resource-item[data-key="{data_key}"]'
+        )
 
-        # Se observa que hay datos: 1) agrupados y 2) detalle
+        # Buscamos los resultados detallados
         for resource in resources:
             title = resource.select_one("a[title]")
-            # Se seleccionan los resutlados detallados y se devuelve la url, contenida en el resource-url-analytics
-            if title and title["title"].startswith("Detalle."):
-                link = resource.select_one("a.resource-url-analytics")
-                if link:
-                    return RAIZ + link["href"]
-        
-    # si la petición ha ido mal 
+
+            if title:
+                title_text = title.get("title")
+
+                if isinstance(title_text, str) and title_text.startswith("Detalle."):
+                    link = resource.select_one("a.resource-url-analytics")
+
+                    if link:
+                        href = link.get("href")
+
+                        if isinstance(href, str):
+                            return RAIZ + href
+
     else:
         raise MadridError("Error al realizar la petición")
+
+    # Si no se encuentra el recurso correspondiente
+    raise MadridError(
+        f"No se han encontrado datos para {month}/{year}"
+    )
        
 
 class MadridFines:
@@ -96,7 +108,7 @@ class MadridFines:
         url = get_url(year, month)
         content = cacheurl.get(url)
         content = io.StringIO(content)
-        df = pd.read_csv(content, sep =';', encoding = 'latin1')
+        df = pd.read_csv(content, sep =';', encoding = 'latin1', low_memory=False)
         return df
 
 
@@ -104,8 +116,7 @@ class MadridFines:
         """
         Método que borra todos los elementos de la caché.
         """
-        self.cacheurl.clear()
-        
+        self.cacheurl.clear()        
     
 
     @staticmethod
@@ -118,21 +129,18 @@ class MadridFines:
         X, COORDENADA-Y.
         """
 
-        print("Entrando al método clean...")
-
-        ## PREGUNTA A - FET
-
+        ## PREGUNTA A
         columna = "CALIFICACION"
         # Eliminar los espacios en blanco de la columna
         df[columna] = df[columna].apply(lambda row: row.strip(" "))
         
-        ## PREGUNTA B - FET
+        ## PREGUNTA B
         columnas = ["DESCUENTO", "HECHO-BOL", "DENUNCIANTE"]
         for columna in columnas:
             # Eliminar los espacios en blanco de la columna
             df[columna] = df[columna].apply(lambda row: row.strip(" "))
 
-        ## PREGUNTA C - FET
+        ## PREGUNTA C
         # Renombrar columnas eliminando los espacios en blanco
         # df = df.rename(str.strip, axis="columns")
         df.columns = df.columns.str.strip()
@@ -146,13 +154,13 @@ class MadridFines:
             col.replace("\x00", "") for col in df.columns
         ]
 
-        ## PREGUNTA D - FET
+        ## PREGUNTA D
         columnas = ["VEL_LIMITE", "VEL_CIRCULA"]
         for columna in columnas:
             # Convertir las columnas a tipo numérico
             df[columna] = pd.to_numeric(df[columna], errors="coerce")
 
-        ## PREGUNTA E - FET
+        ## PREGUNTA E
         columnas = ["COORDENADA-X", "COORDENADA-Y", "COORDENADA_X", "COORDENADA_Y"]
         for columna in columnas:
             # Solo cambia las columnas que están en el df
@@ -182,7 +190,7 @@ class MadridFines:
         # Devuelve None
         return None
 
-    # REVISAR
+
     def add(self, year: int, month: int|None = None) -> None: 
         """
         Permite añadir información de multas de un mes y un año concreto al dataset data actual. Evita duplicar meses ya cargados (si el mes
@@ -196,6 +204,11 @@ class MadridFines:
                 return print("El dataset ya estaba previamente importado")
         
         # Sino, importarlo
+        if month is None:
+            raise NotImplementedError(
+                "La descarga del año no está implementada"
+            )
+        
         df = MadridFines.load(year=year, month=month, cacheurl=self.cacheurl)   # static method
         # Limpieza de datos
         self.clean(df)
@@ -212,10 +225,13 @@ class MadridFines:
         meses cargados, dibuja una línea por cada mes. La función guarda el gráfico con nombre fig_name (por ejemplo evolucion_multas.png)
         """
 
+        # Asegurar que el índice es un DatetimeIndex
+        index = pd.DatetimeIndex(self.data.index)
+        
         # Agrupar for mes, año y hora. Entonces, contar las multas.
         fines = (
             self.data
-            .groupby([self.data.index.month, self.data.index.year, self.data.index.hour])
+            .groupby([index.month, index.year, index.hour])
             .size()
             .rename_axis(["MES", "ANIO", "HORA"])
             .reset_index(name="MULTAS")
@@ -315,8 +331,9 @@ class MadridError(Exception):
         self.message = message
     
 
-######## MAIN ########
-if __name__ == '__main__':
+#################    MAIN     ####################
+# No se incluye en el pytest -> # pragma: no cover
+if __name__ == '__main__': # pragma: no cover
 
     # Crear objeto de la classe MadridFines
     m = MadridFines(app_name="Olomi", obsolescence=2)

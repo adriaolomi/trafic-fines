@@ -101,3 +101,59 @@ def test_cacheurl_connection_error_returns_none(cache_url, monkeypatch):
 def test_cacheurl_load_missing_url_raises_cache_error(cache_url):
     with pytest.raises(CacheError):
         cache_url.load("https://example.test/missing.csv")
+
+
+def test_cacheurl_how_old(cache_url, monkeypatch):
+    class Response:
+        status_code = 200
+        text = "test content"
+
+    monkeypatch.setattr(
+        cache_module.requests,
+        "get",
+        lambda url: Response()
+    )
+
+    url = "https://example.test/data.csv"
+
+    cache_url.get(url)
+    age = cache_url.how_old(url)
+
+    assert isinstance(age, float)
+    assert age >= 0
+    assert age < 1000
+
+
+def test_cacheurl_delete(cache_url, monkeypatch):
+    class Response:
+        status_code = 200
+        text = "test content"
+
+    monkeypatch.setattr(
+        cache_module.requests,
+        "get",
+        lambda url: Response()
+    )
+
+    url = "https://example.test/data.csv"
+
+    cache_url.get(url)
+
+    assert cache_url.exists(url) is True
+
+    cache_url.delete(url)
+
+    assert cache_url.exists(url) is False
+
+
+def test_cacheurl_delete_missing_url(cache_url):
+    cache_url.delete("https://example.test/missing.csv")
+
+    assert cache_url.exists("https://example.test/missing.csv") is False
+    
+
+def test_cacheurl_str(cache_url):
+    result = str(cache_url)
+
+    assert isinstance(result, str)
+    assert cache_url.app_name in result

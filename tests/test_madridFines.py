@@ -5,10 +5,6 @@ import trafic_fines.madridFines as madrid_module
 from trafic_fines.madridFines import MadridError, MadridFines
 
 
-# ---------------------------------------------------------
-# Tests de clean()
-# ---------------------------------------------------------
-
 def test_clean_returns_none(sample_fines):
     result = MadridFines.clean(sample_fines)
     assert result is None
@@ -57,14 +53,10 @@ def test_clean_converts_invalid_numeric_values_to_nan(sample_fines):
 
 
 def test_clean_removes_null_character_from_column_names(sample_fines):
-    sample_fines["EXTRA\\x00"] = ["a", "b", "c"]
+    sample_fines["EXTRA\x00"] = ["a", "b", "c"]
     MadridFines.clean(sample_fines)
     assert "EXTRA" in sample_fines.columns
 
-
-# ---------------------------------------------------------
-# Tests de get_url()
-# ---------------------------------------------------------
 
 def test_get_url_finds_detail_resource(monkeypatch):
     html = """
@@ -99,15 +91,11 @@ def test_get_url_request_error_raises_madrid_error(monkeypatch):
         madrid_module.get_url(2024, 9)
 
 
-# ---------------------------------------------------------
-# Tests de load()
-# ---------------------------------------------------------
-
 def test_load_reads_csv_from_cache(monkeypatch):
     expected_url = "https://example.test/fines.csv"
     csv_content = (
-        "CALIFICACION;DESCUENTO;ANIO;MES;HORA\\n"
-        "LEVE;SI;2024;9;14.30\\n"
+        "CALIFICACION;DESCUENTO;ANIO;MES;HORA\n"
+        "LEVE;SI;2024;9;14.30\n"
     )
 
     def mock_get_url(year, month):
@@ -126,10 +114,6 @@ def test_load_reads_csv_from_cache(monkeypatch):
     assert result.loc[0, "CALIFICACION"] == "LEVE"
     assert result.loc[0, "MES"] == 9
 
-
-# ---------------------------------------------------------
-# Tests de add()
-# ---------------------------------------------------------
 
 def test_add_loads_cleans_and_appends_dataset(sample_fines, monkeypatch):
     madrid = MadridFines(app_name="pytest_madrid", obsolescence=2)
@@ -161,10 +145,6 @@ def test_add_does_not_load_same_month_twice(sample_fines, monkeypatch):
     assert len(madrid.data) == 3
     assert madrid.loaded == [(9, 2024)]
 
-
-# ---------------------------------------------------------
-# Tests dels mètodes d'anàlisi
-# ---------------------------------------------------------
 
 def test_fines_calification_counts_by_month_and_year(sample_fines):
     madrid = MadridFines(app_name="pytest_calification", obsolescence=2)
@@ -217,3 +197,26 @@ def test_clean_cache_calls_cache_clear(monkeypatch):
     monkeypatch.setattr(madrid.cacheurl, "clear", mock_clear)
     madrid.clean_cache()
     assert calls == [True]
+
+
+def test_madridfines_str():
+    madrid = MadridFines(app_name="pytest_madrid", obsolescence=2)
+
+    result = str(madrid)
+
+    assert isinstance(result, str)
+    assert "Data:" in result
+    assert "Loaded:" in result
+    assert str(madrid.data) in result
+    assert str(madrid.loaded) in result
+
+
+def test_loaded_setter():
+    madrid = MadridFines(app_name="pytest_madrid", obsolescence=2)
+
+    loaded = [(9, 2024), (10, 2024)]
+
+    madrid.loaded = loaded
+
+    assert madrid.loaded == loaded
+    assert madrid.loaded is loaded
