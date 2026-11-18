@@ -29,3 +29,6 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-datafiles>=3.0.1",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
